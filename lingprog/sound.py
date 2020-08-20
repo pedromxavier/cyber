@@ -1,3 +1,5 @@
+import time
+
 try:
     ## Disponível para windows
     import winsound
@@ -5,6 +7,9 @@ try:
         """ frequência (Hz)
             duração (s)
         """
+        if frequência is None:
+            time.sleep(duração)
+            return
         winsound.Beep(int(frequência), int(duração * 1000))
 
     raise ImportError
@@ -25,10 +30,15 @@ except ImportError:
         ''')
         exit(1)
 
-    def som(frequência: int, duração: int, volume: float = 1.0):
+    def som(frequência: float, duração: float, volume: float = 1.0):
         """ frequência (Hz)
             duração (s)
         """
+        if frequência is None:
+            time.sleep(duração)
+            return
+
+        canais = 1 # mono
         taxa = 44100  # 44100 amostras por segundo
         bits = 16
 
@@ -38,19 +48,19 @@ except ImportError:
         amplitude = ((1 << (bits - 1)) - 1)
 
         # Cria um vetor com de tamanho `duração * taxa`, entre 0 e a duração (segundos).
-        t = np.linspace(0, duração, duração * taxa, False)
+        t = np.linspace(0, duração, int(duração * taxa), False)
 
         # Gera a onda na frequência estabelecida, valores entre -1 e 1
         onda = np.sin(frequência * t * 2 * np.pi)
 
         # Amplifica o som valores entre `-amplitude` e `amplitude`
-        audio = onda * amplitude * volume
+        áudio = onda * amplitude * volume
 
         # Converte para inteiro de 16 bits
-        audio = audio.astype(np.int16)
+        áudio = áudio.astype(np.int16)
 
         # Reproduz o som
-        play = sa.play_buffer(audio, 1, 2, taxa)
+        play = sa.play_buffer(áudio, canais, bits >> 3, taxa)
 
         # Espera o fim da reprodução
         play.wait_done()
