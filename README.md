@@ -1,6 +1,5 @@
 # cyber
-Aulas no Cyberespaço A2A
-
+Aulas no [Cyberespaço A2A](cyberespaco.github.io)
 
 ## lingprog
 
@@ -14,5 +13,5 @@ Para todos os sistemas vamos precisar dos módulos `numpy` e `simpleaudio`.
 - SimpleAudio
 `pip install simpleaudio`
 
-No Windows não requer nenhuma configuração adicional. Para Linux e OSx `simleaudio` pode demandar algumas dependências:
-    `apt-get install -y python3-dev libasound2-dev`
+No Windows não requer nenhuma configuração adicional. Para Linux e OSx `simpleaudio` pode demandar algumas dependências:
+`apt-get install -y python3-dev libasound2-dev`
