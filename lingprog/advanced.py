@@ -1,20 +1,31 @@
 import numpy as np
-import wave
+import simpleaudio
+import re
+
+def lançar_erro(tipo:str, partitura: str, i: int):
+    linhas = partitura.split('\n')
+
+    total = 0
+
+    for linha in linhas:
+        ## linha encontrada
+        if i < total + len(linha):
+            break
+        else:
+            total = total + len(linha) + 1 ## quebra de linha inclusa
+            continue
+    
+    print(linha)
+    print(' ' * (i - total - 1) + '^')
 
 def compilar(partitura: str, **opções) -> np.ndarray:
-    """ compilar(P: str, **opções) -> np.ndarray.
+    """ compilar(P: str) -> np.ndarray.
     """
-
-    if 'timbre' in opções:
-        timbre = list(opções['timbre'])
-    else:
-        timbre = [1.0]
-
     símbolos = análise_léxica(partitura)
 
-    notas = análise_sintática(símbolos)
+    instruções = análise_sintática(símbolos)
 
-    return notas
+    return instruções
 
 def análise_léxica(partitura: str) -> list:
     """
@@ -22,12 +33,7 @@ def análise_léxica(partitura: str) -> list:
 
     ## Estados
     estados = {
-        # -1 -> aguardando qualquer símbolo (descarte)
-        -1 : {
-            None : 0
-        },
-
-        # 0 -> aguardando nota, pausa, repetição, espaço ou comentário (estado base)
+        # 0 -> aguardando nota, pausa, repetição, espaço, comentário ou final (estado base)
         0 : {
             'ABCDEFG' : 1, ## nota
             '$' : 3, ## pausa
@@ -58,16 +64,16 @@ def análise_léxica(partitura: str) -> list:
         # 5 -> aguardando conteúdo do indicador de duração ou fim (`]`, recebeu `0-9`)
         5 : {
             '0123456789' : 5,
-            ']' : 0,
+            ']' : 11,
         },
 
         # 6 -> aguardando início da repetição (`|:`)
         6 : {
-            ':' : 0,
+            ':' : 11,
         },
         # 7 -> aguardando fim de repetição (`:|`)
         7 : {
-            '|' : 0,
+            '|' : 11,
         },
 
         # 8 -> aguardando início do comentário (`/*`)
@@ -82,57 +88,151 @@ def análise_léxica(partitura: str) -> list:
         # 10 -> aguardando fim do comentário (`*/`, recebeu `*`)
         10 : {
             '/' : 0
+        },
+
+        # 11 -> aguardando espaço ou quebra de linha
+        11 : {
+            ' \n' : 0 
         }
-    
     }
+
+    estados_finais = {0, 3, 11}
+
+    ignorar = {0, 10}
 
     e = 0 ## estado atual
 
     ## Tamanho da partitura
     n = len(partitura)
 
-    i = 0 ## índice atual
+    ## índice atual
+    i = 0 
 
-    s = '' ## símbolo atual
-
+    ## símbolo atual
+    s = '' 
     símbolos = []
 
-    while i < n:
+    ## tipo do próximo símbolo
+    tipos = {
+        1 : 'NOTA',
+        4 : 'NOTA[]',
+        6 : 'LOOP',
+        7 : 'LOOP',
+    }
 
+    tipo = None
+
+    while i < n:
         c = partitura[i] ## caracter atual
 
         for regra in estados[e]:
-            if c in regra or regra is None:
+            if (regra is None) or (c in regra):
                 f = estados[e][regra]
+                print(f'{e} -> {f} [{c!r}]')
 
-                if f >= 0:
-                    símbolos.append(s + c)
-                
+                ## atualiza o tipo
+                if f in tipos:
+                    tipo = tipos[f]
+
+                ## fim de um símbolo
+                if f == 0:
+                    if e not in ignorar:
+                        símbolos.append((tipo, s, i))
+                    tipo = None
+                    s = ''
+                else:
+                    ## Adiciona caracter ao símbolo
+                    s = s + c
                 e = f 
                 break
             else:
                 continue
         else:
             break
-
         i += 1
-
     else:
-        return símbolos
+        if e not in estados_finais:
+            pass
+        else:
+            if e not in ignorar:
+                símbolos.append((tipo, s, i))
+            return símbolos
 
-    raise SyntaxError(f'Erro de sintaxe no token {i}')
+    erro = f'''
+{partitura}
+{(i-1) * ' '}^
+'''
+    raise SyntaxError(erro)
 
 def análise_sintática(símbolos: list) -> list:
     """
     """
+    ## Nível e pilha de recursão dos loops
+    nível = 0
+    pilha = []
 
-    return []
+    instruções = []
 
+    n = len(instruções)
+
+    j = 0
+    while j < n:
+        tipo = símbolos[j][0]
+        símbolo = símbolos[j][1]
+        i = símbolos[j][2]
+
+        ## repetição
+        if tipo == 'REPE':
+            ## início
+            if símbolo == '|:':
+                nível += 1
+                pilha.append(j)
+                j += 1
+                continue
+            ## fim
+            if símbolo == ":|":
+                if len(pilha) == nível:
+                    if nível == 0:
+                        break
+                    else:
+                        j = pilha.pop() + 1
+                        continue
+                else:
+                    nível -= 1
+                    j += 1
+                    continue
+        
+        elif tipo == "NOTA":
+            nota = símbolo
+            duração = 1
+            instruções.append((nota, duração))
+
+            j += 1
+            continue
+
+        elif tipo == "NOTA[]":
+            regex = re.match(r'(.*)(\[[0-9]+\])', símbolo)
+
+            nota = regex.group(1)
+            duração = regex.group(2)
+
+            instruções.append((nota, duração))
+            j += 1
+            continue
+
+    else:
+        if nível > 0:
+            raise SyntaxError()
+        else:
+            return instruções
 
 def gravar(M: np.ndarray, **opções):
     ...
 
+def síntese(instruções: list, **opções):
+    if 'timbre' in opções:
+        timbre = list(opções['timbre'])
+    else:
+        timbre = [1.0]
 
-if __name__ == '__main__':
-    notas = compilar(__doc__)
-    print(notas)
+    return timbre
