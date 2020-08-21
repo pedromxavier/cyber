@@ -24,6 +24,7 @@ NOTAS = {
 ACIDENTES = {
     'b' : -1,
     '#' : 1,
+    '%' : 0,
 }
 
 def n(nota: str) -> int:
@@ -42,8 +43,6 @@ def n(nota: str) -> int:
         n = NOTAS[letra] + 12 * (oitava - 4) + ACIDENTES[acidente]
     else:
         raise ValueError
-
-    return n
 
 partitura = [
     "B4", "B4", "C4", "D4", "D4", "C4", "B4", "A4", "G3", "G3", "A4", "B4", "B4", "A4", "A4", "$",
