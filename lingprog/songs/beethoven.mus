@@ -1,3 +1,13 @@
-            /* Ode à Alegria */
-B4 B4 C4 D4 D4 C4 B4 A4 G3 G3 A4 B4 B4 A4 A4
-B4 B4 C4 D4 D4 C4 B4 A4 G3 G3 A4 B4 A4 G3 G3
+/* Ode à Alegria */
+
+|: /* Repetição */
+B4 B4 C4 D4
+D4 C4 B4 A4
+G3 G3 A4 B4
+B4. A4[8] A4[2]
+
+B4 B4 C4 D4
+D4 C4 B4 A4
+G3 G3 A4 B4
+A4. G3[8] G3[2]
+:|

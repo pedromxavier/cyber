@@ -1,35 +1,73 @@
 import numpy as np
-import simpleaudio
+import simpleaudio as sa
 import re
 
-class ErroMusical(Exception):
-    ...
+from basic import NOTAS, ACIDENTES, A
+
+TONS = {
+    'C' : {},
+    'G' : {'F' : '#'},
+    'D' : {'C' : '#', 'F' : '#'}
+    ## temos muitos outros!
+}
+
+def f(nota: str, tom: str='C') -> int:
+    """
+    """
+    if len(nota) == 1 and nota == "~": ## pausa
+        return None
+    if len(nota) == 2: ## nota natural, sem acidentes
+        letra = nota[0]
+        oitava = int(nota[1])
+        if letra in TONS[tom]:
+            n = NOTAS[letra] + 12 * (oitava - 4) + ACIDENTES[TONS[tom][letra]]
+        else:
+            n = NOTAS[letra] + 12 * (oitava - 4) 
+    elif len(nota) == 3: ## nota com acidente
+        letra = nota[0]
+        acidente = nota[1]
+        oitava = int(nota[2])
+        n = NOTAS[letra] + 12 * (oitava - 4) + ACIDENTES[acidente]
+    else:
+        raise ValueError
+
+    return A * pow(2.0, n / 12.0)
 
 def formatar_erro(tipo:str, partitura: str, i: int):
+    """
+    """
+    ## sepração do código fonte por linhas
     linhas = partitura.split('\n')
 
     total = 0
 
-    for linha in linhas:
+    n = len(linhas)
+    k = 0
+    while k < n:
+        linha = linhas[k]
         ## linha encontrada
-        if i < total + len(linha):
+        if i < (total + len(linha) + 1):  ## quebra de linha inclusa
             break
         else:
-            total = total + len(linha) + 1 ## quebra de linha inclusa
+            total += len(linha) + 1 ## quebra de linha inclusa
+            k += 1
             continue
-    
-    return linha + '\n' + (' ' * (i - total - 1) + '^')
+    else:
+        ## erro na ultima linha
+        k -= 1
+
+    return f"""{tipo}:
+    {k:2d} {linhas[k-1] if k > 0 else ''}
+--> {k+1:2d} {linhas[k]}
+{((i - total) - 1 + 3 + 4) * ' '}^
+"""
 
 def compilar(partitura: str, **opções) -> list:
     """ compilar(partitura: str) -> np.ndarray.
     """
     símbolos = análise_léxica(partitura)
 
-    print(símbolos)
-
     instruções = análise_sintática(símbolos, partitura)
-
-    print(instruções)
 
     instruções = análise_semântica(instruções, partitura)
 
@@ -44,26 +82,27 @@ def análise_léxica(partitura: str) -> list:
         # 0 -> aguardando nota, pausa, repetição, espaço, comentário ou final (estado base)
         0 : {
             'ABCDEFG' : 1, ## nota
-            '$' : 3, ## pausa
+            '~' : 3, ## pausa
             ':' : 7, ## fim de repetição
             '|' : 6, ## início de repetição
-            ' \n' : 0, ## espaço (descarte)
+            ' \n\t' : 0, ## espaço (descarte)
             '/': 8, ##comentário
         },
         # 1 -> aguardando acidente ou oitava (recebeu nota)
         1 : {
-            'b#%' : 2,
-            '0123456789' : 3, 
+            'b#%' : 2, ## acidente
+            '0123456789' : 3, ## oitava
         },
         # 2 -> aguardando oitava (recebeu nota e acidente)
         2 : {
-            '0123456789' : 3, 
+            '0123456789' : 3, ## oitava
         },
 
-        # 3 -> aguardando início do indicador de duração ou espaço (`[`, recebeu oitava)
+        # 3 -> aguardando início do indicador de duração, ponto de aumento ou espaço (`[`, recebeu oitava)
         3 : {
             '[' : 4,
-            ' \n' : 0,
+            '.' : 11,
+            ' \n\t' : 0,
         },
         # 4 -> aguardando conteúdo do indicador de duração (recebeu `[`)
         4 : {
@@ -72,7 +111,7 @@ def análise_léxica(partitura: str) -> list:
         # 5 -> aguardando conteúdo do indicador de duração ou fim (`]`, recebeu `0-9`)
         5 : {
             '0123456789' : 5,
-            ']' : 11,
+            ']' : 12,
         },
 
         # 6 -> aguardando início da repetição (`|:`)
@@ -98,13 +137,19 @@ def análise_léxica(partitura: str) -> list:
             '/' : 0
         },
 
-        # 11 -> aguardando espaço ou quebra de linha
+        # 11 -> aguardando espaço
         11 : {
-            ' \n' : 0 
+            ' \n\t' : 0 
+        },
+
+        # 12 -> Aguardando ponto de aumento ou espaço
+        12 : {
+            '.' : 11,
+            ' \n\t' : 0,
         }
     }
 
-    estados_finais = {0, 3, 11}
+    estados_finais = {0, 3, 11, 12}
 
     ignorar = {0, 10}
 
@@ -136,7 +181,7 @@ def análise_léxica(partitura: str) -> list:
         for regra in estados[e]:
             if (regra is None) or (c in regra):
                 f = estados[e][regra]
-                #print(f'{e} -> {f} [{c!r}]')
+                ## print(f'{e} -> {f} [{c!r}]')
 
                 ## atualiza o tipo
                 if f in tipos:
@@ -168,7 +213,8 @@ def análise_léxica(partitura: str) -> list:
 
     mensagem_de_erro = formatar_erro('Símbolo Inválido', partitura, i)
 
-    raise ErroMusical(mensagem_de_erro)
+    print(mensagem_de_erro)
+    exit(1)
 
 def análise_sintática(símbolos: list, partitura: str) -> list:
     """
@@ -187,8 +233,10 @@ def análise_sintática(símbolos: list, partitura: str) -> list:
         símbolo = símbolos[j][1]
         i = símbolos[j][2]
 
+        ## print(f'[{tipo}] ({símbolo}) @ {j}')
+
         ## repetição
-        if tipo == 'REPE':
+        if tipo == 'LOOP':
             ## início
             if símbolo == '|:':
                 nível += 1
@@ -197,33 +245,41 @@ def análise_sintática(símbolos: list, partitura: str) -> list:
                 continue
             ## fim
             if símbolo == ":|":
-                if len(pilha) == nível:
-                    if nível == 0:
-                        break
-                    else:
-                        j = pilha.pop() + 1
-                        continue
-                else:
+                if nível > len(pilha): ## terminando de repetir
                     nível -= 1
                     j += 1
                     continue
+                elif nível == len(pilha): ## repetindo
+                    if nível > 0:
+                        j = pilha.pop() + 1
+                        continue
+                    else:
+                        mensagem_de_erro = formatar_erro('Repetição Inconsistente', partitura, i)
+                        break
         
         elif tipo == "NOTA":
-            nota = símbolo
-            duração = 1
+            if símbolo[-1] == '.':
+                nota = símbolo[:-1]
+                ponto = True
+            else:
+                nota = símbolo
+                ponto = False
+            ## padrão
+            figura = 4
 
-            instruções.append((nota, duração, i))
+            instruções.append((nota, figura, ponto, i))
 
             j += 1
             continue
 
         elif tipo == "NOTA[]":
-            regex = re.match(r'(.*)(\[[0-9]+\])', símbolo)
+            regex = re.match(r'(.*)\[([0-9]+)\](\.?)', símbolo)
 
             nota = regex.group(1)
-            duração = int(regex.group(2))
+            figura = int(regex.group(2))
+            ponto = bool(regex.group(3))
 
-            instruções.append((nota, duração, i))
+            instruções.append((nota, figura, ponto, i))
             j += 1
             continue
 
@@ -234,7 +290,8 @@ def análise_sintática(símbolos: list, partitura: str) -> list:
         else:
             return instruções
     
-    raise ErroMusical(mensagem_de_erro)
+    print(mensagem_de_erro)
+    exit(1)
 
 def análise_semântica(instruções: list, partitura: str):
     novas_instruções = []
@@ -243,20 +300,22 @@ def análise_semântica(instruções: list, partitura: str):
     j = 0
     while j < n:
         nota = instruções[j][0]
-        duração = instruções[j][1]
-        i = instruções[j][2]
+        figura = instruções[j][1]
+        ponto = instruções[j][2]
+        i = instruções[j][3]
 
-        if duração == 0:
+        if figura == 0: ## dividir por zero!
             break
         else:
-            novas_instruções.append((nota, duração))
+            novas_instruções.append((nota, figura, ponto))
             j += 1
     else:
         return novas_instruções
 
     mensagem_de_erro = formatar_erro('Duração Inválida:', partitura, i)
 
-    raise ErroMusical(mensagem_de_erro)
+    print(mensagem_de_erro)
+    exit(1)
 
 def síntese(instruções: list, **opções) -> np.ndarray:
     if 'timbre' in opções:
@@ -269,50 +328,135 @@ def síntese(instruções: list, **opções) -> np.ndarray:
     else:
         tempo = 120
 
+    ## amostras por segundo
     if 'taxa' in opções:
         taxa = int(opções['taxa'])
     else:
         taxa = 44_100
 
+    if 'tom' in opções:
+        tom = opções['tom']
+    else:
+        tom = 'C'
+
+    if 'compasso' in opções:
+        compasso = tuple(opções['compasso'])
+    else:
+        compasso = (4, 4)
+
+    if 'bits' in opções:
+        bits = int(opções['bits'])
+    else:
+        bits = 16
+
+    if 'volume' in opções:
+        volume = np.clip(opções['volume'], 0.0, 1.0)
+    else:
+        volume = 1.0
+
+    amplitude = ((1 << (bits - 1)) - 1)
+
     ## valores de timbre precisam estar entre 0.0 e 1.0
     timbre = np.clip(timbre, 0.0, 1.0)
 
-    ## normalizando o timbre
+    ## normalizando o timbre, para que soma(timbre) = 1
     if np.sum(timbre) == 0.0:
-        raise ErroMusical('Timbre inválido')
+        print('Timbre inválido')
+        exit(1)
     else:
         timbre = timbre / np.sum(timbre)
 
-    ##
-    notas = []
+    l = len(timbre)
+
+    ## pares (frequência, duração)
+    sons = []
     
-    ##
+    ## duração total da música (segundos)
     duração_total = 0.0
 
     n = len(instruções)
     i = 0
     while i < n:
         nota = instruções[i][0]
-        duração = (1.0 / instruções[i][1])
+        figura = instruções[i][1]
+        ponto = instruções[i][2]
 
+        duração = (compasso[1] / figura) * (60.0 /tempo)
 
+        ## Aplica o ponto de aumento
+        if ponto: duração += (duração / 2.0)
+
+        frequência = f(nota, tom=tom)
+
+        sons.append((frequência, duração))
+
+        duração_total += duração
 
         i += 1
 
-
     ## linha do tempo
-    t = np.linspace(0, duração, int(duração_total * taxa), False)
+    m = int(duração_total * taxa)
 
+    t = np.linspace(0, duração, m, False)
 
+    onda = np.zeros(m, dtype=float)
 
+    n = len(sons)
+    i = 0
+    j = 0
+    while i < n:
+        som = sons[i]
 
+        frequência = som[0]
+        duração = som[1]
 
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        with open(sys.argv[1], 'r') as arquivo:
-            partitura = arquivo.read()
-            print(compilar(partitura))
+        d = int(duração * taxa)
+
+        k = 0
+        while k < l:
+            # intensidade do harmônico
+            harmônico = timbre[k]
+
+            # Gera a onda na frequência estabelecida (valores entre -1 e 1)
+            # sen(f * t * 2 * pi)
+            onda[j:j+d] += harmônico * np.sin((k + 1) * frequência * t[j:j+d] * 2 * np.pi)
+
+            k += 1
+
+        j += d
+        i += 1
     else:
-        print("Erro: Nenhum arquivo especificado")
-        exit(1)
+        # Amplifica o som (valores entre `-amplitude` e `amplitude`)
+        áudio = onda * amplitude * volume
+
+        ## Converte para inteiro de 16 bits
+        áudio = áudio.astype(np.int16)
+
+        return áudio
+
+def reproduzir(áudio: np.ndarray, **opções):
+    if 'bits' in opções:
+        bits = int(opções['bits'])
+    else:
+        bits = 16
+
+    if 'taxa' in opções:
+        taxa = int(opções['taxa'])
+    else:
+        taxa = 44_100 ## amostras por segundo
+
+    if 'canais' in opções:
+        canais = int(opções['canais'])
+    else:
+        canais = 1
+
+    # Reproduz o som
+    play = sa.play_buffer(áudio, canais, bits >> 3, taxa)
+
+    # Espera o fim da reprodução
+    play.wait_done()
+
+def união(*áudios: list, **opções) -> np.ndarray:
+    """
+    """
+    raise NotImplementedError

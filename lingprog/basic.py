@@ -1,7 +1,26 @@
 from sound import som
 
 ## Frquência de referência para o lá central (A4)
-A = 440.0
+A = 440.0 #Hz
+
+## bpm (batidas por minuto)
+TEMPO = 120 
+
+NOTAS = {
+    'A' : 0, # lá
+    'B' : 2, # si
+    'C' : 3, # dó
+    'D' : 5, # ré
+    'E' : 7, # mi
+    'F' : 8, # fá 
+    'G' : 10, # sol
+}
+
+ACIDENTES = {
+    'b' : -1, # bemol
+    '#' : 1, # sustenido
+    '%' : 0, # bequadro
+}
 
 def f(n: int) -> float:
     """ n (distância da nota para o lá central A4)
@@ -11,50 +30,32 @@ def f(n: int) -> float:
     else:
         return A * pow(2.0, n / 12.0)
 
-NOTAS = {
-    'A' : 0,
-    'B' : 2,
-    'C' : 3,
-    'D' : 5,
-    'E' : 7,
-    'F' : 8,
-    'G' : 10,
-}
-
-ACIDENTES = {
-    'b' : -1,
-    '#' : 1,
-    '%' : 0,
-}
-
 def n(nota: str) -> int:
     """
     """
-    if len(nota) == 1 and nota == "$":
+    if len(nota) == 1 and nota == "~":
         return None
+
     if len(nota) == 2:
         letra = nota[0]
         oitava = int(nota[1])
-        n = NOTAS[letra] + 12 * (oitava - 4)
+        return NOTAS[letra] + 12 * (oitava - 4)
+
     elif len(nota) == 3:
         letra = nota[0]
         acidente = nota[1]
         oitava = int(nota[2])
-        n = NOTAS[letra] + 12 * (oitava - 4) + ACIDENTES[acidente]
+        return NOTAS[letra] + 12 * (oitava - 4) + ACIDENTES[acidente]
+
     else:
         raise ValueError
-
-partitura = [
-    "B4", "B4", "C4", "D4", "D4", "C4", "B4", "A4", "G3", "G3", "A4", "B4", "B4", "A4", "A4", "$",
-    "B4", "B4", "C4", "D4", "D4", "C4", "B4", "A4", "G3", "G3", "A4", "B4", "A4", "G3", "G3"
-]
-
+    
 def reproduzir(partitura: list, tempo: int):
     """ partitura
         tempo (bpm)
     """
 
-    duração = 60 / tempo
+    duração = (60 / tempo)
 
     for nota in partitura:
         frequência = f(n(nota))
