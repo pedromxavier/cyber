@@ -1,13 +1,17 @@
 # cyber
-Aula no Cyberespaço A2A
+Aulas no [Cyberespaço A2A](cyberespaco.github.io)
 
+## lingprog
 
-## `sound.py`
+Para todos os sistemas vamos precisar dos módulos `numpy` e `simpleaudio`.
 
-`from sound import som`
+### Instalação
 
-- No Windows não requer nenhuma configuração adicional.
+- NumPy:
+`pip install numpy`
 
-- Para Linux e OSx demanda algumas dependências
-    - `numpy`, que será necessária adiante. `$ pip install numpy`
-    - `simplesound`
+- SimpleAudio
+`pip install simpleaudio`
+
+No Windows não requer nenhuma configuração adicional. Para Linux e OSx `simpleaudio` pode demandar algumas dependências:
+`apt-get install -y python3-dev libasound2-dev`
