@@ -245,8 +245,10 @@ def análise_sintática(símbolos: list, partitura: str) -> list:
 
         ## definição de tom
         if tipo == 'TOM':
-            tom = símbolos[j][1]
+            tom = símbolo[1]
             instruções.append(('TOM', tom))
+            j += 1
+            continue
 
         ## repetição
         if tipo == 'LOOP':
@@ -375,7 +377,7 @@ def síntese(instruções: list, **opções) -> np.ndarray:
 
     amplitude = ((2 ** (bits - 1)) - 1)
 
-    ## valores de timbre precisam estar entre 0.0 e 1.0
+    ## Conversão de decibéis
     timbre = np.power(10.0, timbre)
 
     ## normalizando o timbre, para que soma(timbre) = 1
@@ -398,6 +400,8 @@ def síntese(instruções: list, **opções) -> np.ndarray:
     while i < n:
         if instruções[i][0] == 'TOM':
             tom = instruções[i][1]
+            i += 1
+            continue
 
         nota = instruções[i][1]
         figura = instruções[i][2]
@@ -450,7 +454,7 @@ def síntese(instruções: list, **opções) -> np.ndarray:
 
             k += 1
 
-        onda[j:j+d] *= bow(min(d, len(onda) - j), 15.0)
+        onda[j:j+d] *= bow(min(d, len(onda) - j), 40.0)
 
         j += d
         i += 1
@@ -493,7 +497,7 @@ def união(*áudios: list, **opções) -> np.ndarray:
     """
     """
     assert áudios
-    print(áudios)
+    
     n = len(áudios)
     m = max([len(áudio) for áudio in áudios])
 
