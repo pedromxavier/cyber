@@ -24,6 +24,7 @@ ACIDENTES = {
 
 def f(n: int) -> float:
     """ n (distância da nota para o lá central A4)
+        f(n) = A * 2^(n/12)
     """
     if n is None:
         return None
@@ -31,7 +32,7 @@ def f(n: int) -> float:
         return A * pow(2.0, n / 12.0)
 
 def n(nota: str) -> int:
-    """
+    """ 'A6' 'C#4'
     """
     if len(nota) == 1 and nota == "~":
         return None
@@ -49,7 +50,7 @@ def n(nota: str) -> int:
 
     else:
         raise ValueError
-    
+
 def reproduzir(partitura: list, tempo: int):
     """ partitura
         tempo (bpm)
@@ -60,3 +61,8 @@ def reproduzir(partitura: list, tempo: int):
     for nota in partitura:
         frequência = f(n(nota))
         som(frequência, duração)
+
+partitura = [ ## beethoven
+    "B4", "B4", "C4", "D4", "D4", "C4", "B4", "A4", "G3", "G3", "A4", "B4", "B4", "A4", "A4", "~",
+    "B4", "B4", "C4", "D4", "D4", "C4", "B4", "A4", "G3", "G3", "A4", "B4", "A4", "G3", "G3"
+]

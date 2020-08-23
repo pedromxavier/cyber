@@ -66,11 +66,11 @@ def compilar(partitura: str, **opções) -> list:
     """ compilar(partitura: str) -> np.ndarray.
     """
     símbolos = análise_léxica(partitura)
-
+    print('Análise Léxica [OK]')
     instruções = análise_sintática(símbolos, partitura)
-
+    print('Análise Sintática [OK]')
     instruções = análise_semântica(instruções, partitura)
-
+    print('Análise Semântica [OK]')
     return instruções
 
 def análise_léxica(partitura: str) -> list:
@@ -87,6 +87,7 @@ def análise_léxica(partitura: str) -> list:
             '|' : 6, ## início de repetição
             ' \n\t' : 0, ## espaço (descarte)
             '/': 8, ##comentário
+            '$': 13 ## Clave (definição de tonalidade)
         },
         # 1 -> aguardando acidente ou oitava (recebeu nota)
         1 : {
@@ -146,6 +147,11 @@ def análise_léxica(partitura: str) -> list:
         12 : {
             '.' : 11,
             ' \n\t' : 0,
+        },
+
+        # 13 -> Aguardando tonalidade
+        13 : {
+            'ABCDEFG' : 11,
         }
     }
 
@@ -168,9 +174,11 @@ def análise_léxica(partitura: str) -> list:
     ## tipo do próximo símbolo
     tipos = {
         1 : 'NOTA',
+        3 : 'NOTA',
         4 : 'NOTA[]',
         6 : 'LOOP',
         7 : 'LOOP',
+        13: 'TOM'
     }
 
     tipo = None
@@ -235,6 +243,11 @@ def análise_sintática(símbolos: list, partitura: str) -> list:
 
         ## print(f'[{tipo}] ({símbolo}) @ {j}')
 
+        ## definição de tom
+        if tipo == 'TOM':
+            tom = símbolos[j][1]
+            instruções.append(('TOM', tom))
+
         ## repetição
         if tipo == 'LOOP':
             ## início
@@ -267,7 +280,7 @@ def análise_sintática(símbolos: list, partitura: str) -> list:
             ## padrão
             figura = 4
 
-            instruções.append((nota, figura, ponto, i))
+            instruções.append(('NOTA', nota, figura, ponto, i))
 
             j += 1
             continue
@@ -279,7 +292,7 @@ def análise_sintática(símbolos: list, partitura: str) -> list:
             figura = int(regex.group(2))
             ponto = bool(regex.group(3))
 
-            instruções.append((nota, figura, ponto, i))
+            instruções.append(('NOTA', nota, figura, ponto, i))
             j += 1
             continue
 
@@ -299,15 +312,21 @@ def análise_semântica(instruções: list, partitura: str):
     n = len(instruções)
     j = 0
     while j < n:
-        nota = instruções[j][0]
-        figura = instruções[j][1]
-        ponto = instruções[j][2]
-        i = instruções[j][3]
+        if instruções[j][0] == 'NOTA':
+            nota = instruções[j][1]
+            figura = instruções[j][2]
+            ponto = instruções[j][3]
+            i = instruções[j][4]
 
-        if figura == 0: ## dividir por zero!
-            break
-        else:
-            novas_instruções.append((nota, figura, ponto))
+            if figura == 0: ## dividir por zero!
+                break
+            else:
+                novas_instruções.append(('NOTA', nota, figura, ponto))
+                j += 1
+
+        elif instruções[j][0] == 'TOM':
+            tom = instruções[j][1]
+            novas_instruções.append(('TOM', tom))
             j += 1
     else:
         return novas_instruções
@@ -354,10 +373,10 @@ def síntese(instruções: list, **opções) -> np.ndarray:
     else:
         volume = 1.0
 
-    amplitude = ((1 << (bits - 1)) - 1)
+    amplitude = ((2 ** (bits - 1)) - 1)
 
     ## valores de timbre precisam estar entre 0.0 e 1.0
-    timbre = np.clip(timbre, 0.0, 1.0)
+    timbre = np.power(10.0, timbre)
 
     ## normalizando o timbre, para que soma(timbre) = 1
     if np.sum(timbre) == 0.0:
@@ -377,11 +396,14 @@ def síntese(instruções: list, **opções) -> np.ndarray:
     n = len(instruções)
     i = 0
     while i < n:
-        nota = instruções[i][0]
-        figura = instruções[i][1]
-        ponto = instruções[i][2]
+        if instruções[i][0] == 'TOM':
+            tom = instruções[i][1]
 
-        duração = (compasso[1] / figura) * (60.0 /tempo)
+        nota = instruções[i][1]
+        figura = instruções[i][2]
+        ponto = instruções[i][3] ## True ou False
+
+        duração = (compasso[1] / figura) * (60.0 /tempo) ## 4 / 4
 
         ## Aplica o ponto de aumento
         if ponto: duração += (duração / 2.0)
@@ -397,7 +419,7 @@ def síntese(instruções: list, **opções) -> np.ndarray:
     ## linha do tempo
     m = int(duração_total * taxa)
 
-    t = np.linspace(0, duração, m, False)
+    t = np.linspace(0, duração_total, m, False)
 
     onda = np.zeros(m, dtype=float)
 
@@ -412,16 +434,23 @@ def síntese(instruções: list, **opções) -> np.ndarray:
 
         d = int(duração * taxa)
 
+        if frequência is None:
+            j += d
+            i += 1
+            continue
+
         k = 0
         while k < l:
             # intensidade do harmônico
-            harmônico = timbre[k]
+            harmônico = timbre[k] ## [1.0, 1.0]
 
             # Gera a onda na frequência estabelecida (valores entre -1 e 1)
             # sen(f * t * 2 * pi)
             onda[j:j+d] += harmônico * np.sin((k + 1) * frequência * t[j:j+d] * 2 * np.pi)
 
             k += 1
+
+        onda[j:j+d] *= bow(min(d, len(onda) - j), 15.0)
 
         j += d
         i += 1
@@ -433,6 +462,10 @@ def síntese(instruções: list, **opções) -> np.ndarray:
         áudio = áudio.astype(np.int16)
 
         return áudio
+
+def bow(d: int, a = 10.0):
+    x = np.linspace(-1, 1, d)
+    return (1.0 / (1.0 + np.exp(-a * (x - 0.5)))) - (1.0 / (1.0 + np.exp(-a * (x + 0.5))))
 
 def reproduzir(áudio: np.ndarray, **opções):
     if 'bits' in opções:
@@ -451,7 +484,7 @@ def reproduzir(áudio: np.ndarray, **opções):
         canais = 1
 
     # Reproduz o som
-    play = sa.play_buffer(áudio, canais, bits >> 3, taxa)
+    play = sa.play_buffer(áudio, canais, bits // 8, taxa)
 
     # Espera o fim da reprodução
     play.wait_done()
@@ -459,4 +492,14 @@ def reproduzir(áudio: np.ndarray, **opções):
 def união(*áudios: list, **opções) -> np.ndarray:
     """
     """
-    raise NotImplementedError
+    assert áudios
+    print(áudios)
+    n = len(áudios)
+    m = max([len(áudio) for áudio in áudios])
+
+    áudio_final = np.zeros(m, dtype=float)
+
+    for áudio in áudios:
+        áudio_final[:len(áudio)] += (1.0 / n) * áudio
+
+    return áudio_final.astype(np.int16)
