@@ -1,5 +1,5 @@
 # cyber
-Aulas no [Cyberespaço A2A](cyberespaco.github.io)
+Aulas no [Cyberespaço A2A](https://cyberespaco.github.io)
 
 ## quantica
 
@@ -19,10 +19,10 @@ Para todos os sistemas vamos precisar dos módulos `numpy` e `simpleaudio`.
 
 ### Instalação
 
-- NumPy:
+#### NumPy:
 `pip install numpy`
 
-- SimpleAudio
+#### SimpleAudio
 `pip install simpleaudio`
 
 No Windows não requer nenhuma configuração adicional. Para Linux e OSx `simpleaudio` pode demandar algumas dependências:
