@@ -1,6 +1,18 @@
 # cyber
 Aulas no [Cyberespaço A2A](cyberespaco.github.io)
 
+## quantica
+
+### Instalação
+
+#### IBM
+
+#### DWAVE
+`pip install dwave-ocean-sdk`
+
+#### Jupyter
+`pip install jupyter`
+
 ## lingprog
 
 Para todos os sistemas vamos precisar dos módulos `numpy` e `simpleaudio`.
